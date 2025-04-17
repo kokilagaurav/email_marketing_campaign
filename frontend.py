@@ -2,6 +2,7 @@ import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.pipeline import Pipeline
 
 # Load model and metrics
 def load_model():
@@ -62,8 +63,9 @@ if st.button('🔮 Predict Engagement'):
                          columns=['hour', 'weekday', 'user_country', 'email_text', 'email_version'])
         
         try:
-            # Make prediction
+            # Make prediction using the model instance
             prediction = model.predict(X)[0]
+            prediction_proba = model.predict_proba(X)[0]
             
             # Map numeric predictions to engagement status
             status_mapping = {
@@ -85,32 +87,45 @@ if st.button('🔮 Predict Engagement'):
             else:
                 st.error(f"### {engagement_status}")
                 
-            # Add engagement probability indicator
-            st.progress(0.7)  # You can adjust this value based on model confidence
+            # Add engagement probability indicator with the correct probability value
+            st.progress(prediction_proba[prediction])
             
         except Exception as e:
             st.error(f"Prediction error: {str(e)}")
+            st.error("Please ensure the model is properly loaded and contains the predict method")
 
-        # Display engagement insights
+        # Display engagement insights with optimized values
         st.markdown("### 📈 Engagement Insights")
         col1, col2 = st.columns(2)
         
         with col1:
             st.info("📊 Key Factors")
+            hour_score = metrics['hour_scores'].get(hour, 0)
+            day_score = metrics['day_scores'].get(weekday, 0)
+            country_score = metrics['country_scores'].get(user_country, 0)
+            
+            best_hours_str = ", ".join([f"{h:02d}:00" for h in metrics['best_hours']])
+            best_days_str = ", ".join(metrics['best_days'])
+            best_regions_str = ", ".join(metrics['top_countries'])
+            
             st.markdown(f"""
-                - Time: {hour:02d}:00 hrs (Best hours: {', '.join(f"{h:02d}:00" for h in metrics['best_hours'])})
-                - Day: {weekday} (Best days: {', '.join(metrics['best_days'])})
-                - Region: {user_country} (Top regions: {', '.join(metrics['top_countries'])})
+                - Current Time: {hour:02d}:00 hrs (Score: {hour_score:.2f})
+                  Best Hours: {best_hours_str}
+                - Current Day: {weekday} (Score: {day_score:.2f})
+                  Best Days: {best_days_str}
+                - Current Region: {user_country} (Score: {country_score:.2f})
+                  Best Regions: {best_regions_str}
             """)
         
         with col2:
             st.success("💡 Optimization Tips")
             if hour not in metrics['best_hours']:
-                st.markdown("- Consider sending during peak hours")
+                best_hour = metrics['best_hours'][0]
+                st.markdown(f"- Consider sending at {best_hour:02d}:00 hrs instead of {hour:02d}:00 hrs")
             if weekday not in metrics['best_days']:
-                st.markdown("- Try sending on best performing days")
+                st.markdown(f"- Try sending on {metrics['best_days'][0]} instead of {weekday}")
             if user_country not in metrics['top_countries']:
-                st.markdown("- Engagement is higher in other regions")
+                st.markdown(f"- Highest engagement in {metrics['top_countries'][0]} compared to {user_country}")
 
         # Add actual historical performance comparison
         st.markdown("### 📋 Campaign Performance Metrics")
